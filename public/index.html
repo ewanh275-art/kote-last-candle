@@ -197,7 +197,7 @@
         />
         <div>
           <h1 class="title">$KOTÉ CANDLE</h1>
-          <p class="subtitle">85% Winner • 15% Treasury</p>
+          <p class="subtitle">85% Pool (50/20/15) • 15% Treasury</p>
         </div>
       </div>
       <div id="ton-connect-btn"></div>
@@ -212,7 +212,7 @@
       <div id="roundBadge" class="pill">ROUND #1 • OPEN</div>
       <div class="stats">
         <div class="stat-box">
-          <div class="stat-label">Prize Pot</div>
+          <div class="stat-label">Prize Pot (GRAM)</div>
           <div id="potVal" class="stat-val">0</div>
         </div>
         <div class="stat-box">
@@ -228,18 +228,18 @@
     </div>
 
     <div class="card" id="entryCard">
-      <div class="pill">STEP 1: CONNECT &amp; ENTER</div>
+      <div class="pill">STEP 1: CONNECT &amp; DEPOSIT GRAM</div>
       <p class="muted" style="margin: 0 0 8px;">
-        Entry fee: <strong id="feeVal">1</strong> TON • Single-transfer only (zero token approvals).
+        Deposit fee: <strong id="feeVal">1</strong> <strong>GRAM</strong> • <strong>15%</strong> auto-routes to $KOTÉ Treasury. Of the <strong>85%</strong> pool: <strong>50%</strong> 1st, <strong>20%</strong> 2nd, <strong>15%</strong> 3rd.
       </p>
-      <button class="btn btn-yellow" onclick="payWithTonConnect()">⚡ Connect &amp; Pay Entry Fee</button>
+      <button class="btn btn-yellow" onclick="payWithGram()">⚡ Connect &amp; Deposit GRAM</button>
 
       <div id="memoBox" style="display:none; margin-top:10px;">
-        <div class="muted">Verified Escrow Destination:</div>
+        <div class="muted">Verified Escrow Destination (GRAM Deposit):</div>
         <div id="escrowAddr" class="mono"></div>
-        <div class="muted">Your Unique Entry Memo:</div>
+        <div class="muted">Your Unique GRAM Deposit Memo:</div>
         <div id="memoCode" class="mono"></div>
-        <button class="btn btn-blue" onclick="verifyOnChain()">🔍 Re-Verify Payment On-Chain</button>
+        <button class="btn btn-blue" onclick="verifyOnChain()">🔍 Re-Verify GRAM Deposit</button>
       </div>
     </div>
 
@@ -261,7 +261,7 @@
     let latestState = null;
     let connectedWallet = '';
 
-    // Initialize official TON Connect UI
+    // Initialize TON Connect UI for GRAM deposits
     const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
       manifestUrl: `${window.location.origin}/tonconnect-manifest.json`,
       buttonRootId: 'ton-connect-btn'
@@ -298,7 +298,7 @@
 
         const r = data.round;
         document.getElementById('roundBadge').textContent = `ROUND #${r.id} • ${r.status}`;
-        document.getElementById('potVal').textContent = Number(r.pot_total).toFixed(2);
+        document.getElementById('potVal').textContent = `${Number(r.pot_total).toFixed(2)} GRAM`;
         document.getElementById('aliveVal').textContent = data.aliveCount;
         document.getElementById('timerVal').textContent = `${data.secondsLeft}s`;
         document.getElementById('feeVal').textContent = r.entry_fee;
@@ -319,14 +319,14 @@
       }
     }
 
-    async function payWithTonConnect() {
+    async function payWithGram() {
       if (!connectedWallet) {
         await tonConnectUI.openModal();
         return;
       }
 
       if (!latestState || !latestState.escrowValid) {
-        return setMsg('🛡️ Blocked: Escrow wallet address is invalid or not configured.');
+        return setMsg('🛡️ Blocked: GRAM escrow wallet address is invalid or not configured.');
       }
 
       // 1. Register entry & get unique memo from server
@@ -343,13 +343,13 @@
         return setMsg('You are already ALIVE in this round!');
       }
 
-      // 2. Anti-Drain Guard: Plain TON transfer only (no smart contract payload/approvals)
-      const feeTon = Number(latestState.round.entry_fee);
-      if (!feeTon || feeTon <= 0 || feeTon > 100) {
-        return setMsg('🛡️ Blocked: Entry fee out of safe bounds.');
+      // 2. Anti-Drain Guard: Single transfer only (no smart contract approvals)
+      const feeGram = Number(latestState.round.entry_fee);
+      if (!feeGram || feeGram <= 0 || feeGram > 10000000) {
+        return setMsg('🛡️ Blocked: GRAM deposit fee out of safe bounds.');
       }
 
-      const nanoAmount = String(Math.floor(feeTon * 1e9));
+      const nanoAmount = String(Math.floor(feeGram * 1e9));
       const txRequest = {
         validUntil: Math.floor(Date.now() / 1000) + 300,
         messages: [
@@ -361,12 +361,12 @@
       };
 
       try {
-        setMsg('Confirm the exact transfer inside your TON wallet...');
+        setMsg(`Confirm the ${feeGram} GRAM deposit inside your connected wallet...`);
         const result = await tonConnectUI.sendTransaction(txRequest);
-        setMsg('Transaction sent! Verifying on TON blockchain...');
+        setMsg('GRAM deposit sent! Verifying on-chain...');
         setTimeout(() => verifyOnChain(result.boc), 6000);
       } catch (err) {
-        setMsg('Transaction cancelled or rejected in wallet.');
+        setMsg('GRAM deposit cancelled or rejected in wallet.');
       }
     }
 
@@ -381,7 +381,7 @@
       });
       const data = await res.json();
       if (data.error) return setMsg(data.error);
-      setMsg('✅ On-chain verified! You are ALIVE in the round!');
+      setMsg('✅ GRAM deposit verified! You are ALIVE in the round!');
       refreshState();
     }
 
