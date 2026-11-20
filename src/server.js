@@ -11,6 +11,9 @@ const {
   MIN_PLAYERS_TO_START
 } = require('./gameLoop');
 
+const DEFAULT_TREASURY_WALLET = 'UQAC-pXNqjUJ0u1wBkLPiDkLVMZkWYXWvNQuH5Mtx_tPdsGV';
+const DEFAULT_KOTE_TOKEN = 'EQAmvp1Vrr0zY2--STdH-0X_mP5iCD61p2vNVJYwHlgBni2C';
+
 const app = express();
 app.disable('x-powered-by');
 app.use(express.json({ limit: '32kb' }));
@@ -23,7 +26,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// Simple per-IP Rate Limiter (stops spam/bot flood attacks)
+// Per-IP Rate Limiter
 const rateBuckets = new Map();
 app.use('/api/', (req, res, next) => {
   const ip =
@@ -46,7 +49,7 @@ app.use('/api/', (req, res, next) => {
 
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
-// Resolve the $KOTÉ logo no matter which folder or filename it was uploaded with
+// Resolve the $KOTÉ logo regardless of folder or filename
 function resolveLogoPath() {
   const rootDir = path.join(__dirname, '..');
   const publicDir = path.join(rootDir, 'public');
@@ -71,7 +74,7 @@ app.get('/kote-logo', (req, res) => {
   res.sendFile(logoFile);
 });
 
-// Dynamic TON Connect Manifest (required for Tonkeeper / Telegram Wallet / MyTonWallet)
+// Dynamic TON Connect Manifest
 app.get('/tonconnect-manifest.json', (req, res) => {
   const baseUrl = (process.env.WEBAPP_URL || `https://${req.get('host')}`).replace(/\/$/, '');
   res.json({
@@ -209,10 +212,8 @@ app.get('/api/state', async (req, res) => {
     const secondsLeft = Math.max(0, Math.floor((endsMs - now) / 1000));
     const picksLocked = round.status === 'LIVE' && secondsLeft <= 20;
     const escrowWallet = (process.env.ESCROW_WALLET_ADDRESS || '').trim();
-    const treasuryWallet = (
-      process.env.TREASURY_WALLET_ADDRESS ||
-      'UQAC-pXNqjUJ0u1wBkLPiDkLVMZkWYXWvNQuH5Mtx_tPdsGV'
-    ).trim();
+    const treasuryWallet = (process.env.TREASURY_WALLET_ADDRESS || DEFAULT_TREASURY_WALLET).trim();
+    const koteTokenAddress = (process.env.KOTE_TOKEN_ADDRESS || DEFAULT_KOTE_TOKEN).trim();
 
     res.json({
       round,
@@ -223,6 +224,7 @@ app.get('/api/state', async (req, res) => {
       escrowWallet,
       escrowValid: isValidTonAddress(escrowWallet),
       treasuryWallet,
+      koteTokenAddress,
       myEntry,
       history: recentRes.rows
     });
@@ -390,7 +392,7 @@ app.post('/api/pick', async (req, res) => {
     }
 
     res.json({ entry: updated.rows[0] });
-  } catch (err) {js
+  } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to save pick' });
   }
