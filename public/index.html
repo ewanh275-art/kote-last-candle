@@ -217,7 +217,7 @@
         </div>
         <div class="stat-box">
           <div class="stat-label">Alive (Min 3)</div>
-          <div id="aliveVal" class="stat-val">0</div>
+          <div id="aliveVal" class="stat-val">0/3</div>
         </div>
         <div class="stat-box">
           <div class="stat-label">Timer</div>
@@ -227,7 +227,9 @@
       <p id="lobbyReqInfo" class="muted" style="margin: 8px 0 0;">
         Needs at least 3 players to start (3 knockout rounds).
       </p>
-      <p id="priceInfo" class="muted" style="margin: 6px 0 0;">Open price: waiting for live candle...</p>
+      <p id="priceInfo" class="muted" style="margin: 6px 0 0;">
+        KOTÉ live candle: waiting for lobby countdown...
+      </p>
     </div>
 
     <div class="card" id="entryCard">
@@ -280,7 +282,6 @@
       }
     }
 
-    // Sync immediately if already restored in session
     if (tonConnectUI.wallet) {
       syncWalletStatus(tonConnectUI.wallet);
     }
@@ -320,11 +321,11 @@
 
         document.getElementById('lobbyReqInfo').textContent = needed > 0
           ? `Waiting for ${needed} more player(s) (min ${minPlayers} players required before game starts).`
-          : `Minimum ${minPlayers} players met! Knockout rounds ready.`;
+          : `Minimum ${minPlayers} players met! 3 knockout rounds ready.`;
 
         document.getElementById('priceInfo').textContent = r.open_price
-          ? `Candle Open: $${Number(r.open_price).toFixed(8)} • ${data.picksLocked ? 'PICKS LOCKED' : 'Picks Open'}`
-          : 'Waiting for minimum players & lobby countdown to launch first candle...';
+          ? `KOTÉ Open: $${Number(r.open_price).toFixed(8)} • ${data.picksLocked ? 'PICKS LOCKED' : 'Picks Open'}`
+          : 'Waiting for minimum players & lobby countdown to launch first KOTÉ candle...';
 
         if (data.myEntry) {
           document.getElementById('memoBox').style.display = 'block';
@@ -338,7 +339,6 @@
     }
 
     async function placeEntryFee() {
-      // Check live wallet connection first
       if (!connectedWallet && tonConnectUI.wallet && tonConnectUI.wallet.account) {
         connectedWallet = tonConnectUI.wallet.account.address;
       }
@@ -349,16 +349,14 @@
         return;
       }
 
-      // Ensure latest state is loaded
       if (!latestState) {
         await refreshState();
       }
 
       if (!latestState || !latestState.escrowValid || !latestState.escrowWallet) {
-        return setMsg('🛡️ Escrow wallet address is not configured on the server yet.');
+        return setMsg('🛡️ Blocked: Escrow wallet address is invalid or not configured.');
       }
 
-      // 1. Register player & generate unique memo on server
       const joinRes = await fetch('/api/join', {
         method: 'POST',
         headers: headers(),
@@ -372,7 +370,6 @@
         return setMsg('You already placed your entry fee and are ALIVE in this round!');
       }
 
-      // 2. Anti-Drain Guard: Single transfer only (no smart contract approvals)
       const feeGram = Number(latestState.round.entry_fee || 1);
       if (!feeGram || feeGram <= 0 || feeGram > 10000000) {
         return setMsg('🛡️ Blocked: Entry fee out of safe bounds.');
@@ -392,10 +389,10 @@
       try {
         setMsg(`Approve the ${feeGram} GRAM wager in your connected wallet...`);
         const result = await tonConnectUI.sendTransaction(txRequest);
-        setMsg('Wager sent! Verifying payment on-chain...');
+        setMsg('GRAM wager sent! Verifying on-chain...');
         setTimeout(() => verifyOnChain(result.boc), 6000);
       } catch (err) {
-        setMsg('Wager cancelled or rejected in wallet.');
+        setMsg('GRAM wager cancelled or rejected in wallet.');
       }
     }
 
@@ -410,7 +407,7 @@
       });
       const data = await res.json();
       if (data.error) return setMsg(data.error);
-      setMsg('✅ Entry fee verified! You are ALIVE in the round!');
+      setMsg('✅ GRAM entry fee verified! You are ALIVE in the round!');
       refreshState();
     }
 
