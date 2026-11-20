@@ -19,6 +19,7 @@ async function initDb() {
       step_ends_at TIMESTAMPTZ,
       winner_tg_id BIGINT,
       winner_username TEXT,
+      payout_status VARCHAR(24) DEFAULT 'PENDING',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
   `);
@@ -34,13 +35,17 @@ async function initDb() {
       tx_hash TEXT UNIQUE,
       status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
       pick VARCHAR(10),
+      placement INT,
+      payout_ton NUMERIC(18, 6) DEFAULT 0,
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       UNIQUE(round_id, tg_user_id)
     );
   `);
 
-  // Safe migration if table already existed from earlier deploy
   await pool.query(`ALTER TABLE entries ADD COLUMN IF NOT EXISTS wallet_address TEXT;`);
+  await pool.query(`ALTER TABLE entries ADD COLUMN IF NOT EXISTS placement INT;`);
+  await pool.query(`ALTER TABLE entries ADD COLUMN IF NOT EXISTS payout_ton NUMERIC(18, 6) DEFAULT 0;`);
+  await pool.query(`ALTER TABLE rounds ADD COLUMN IF NOT EXISTS payout_status VARCHAR(24) DEFAULT 'PENDING';`);
 }
 
 module.exports = { pool, initDb };
