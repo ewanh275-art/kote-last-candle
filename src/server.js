@@ -4,7 +4,12 @@ const path = require('path');
 const crypto = require('crypto');
 const express = require('express');
 const { pool, initDb } = require('./db');
-const { tickGameEngine, ensureOpenRound, sendTelegramMessage } = require('./gameLoop');
+const {
+  tickGameEngine,
+  ensureOpenRound,
+  sendTelegramMessage,
+  MIN_PLAYERS_TO_START
+} = require('./gameLoop');
 
 const app = express();
 app.disable('x-powered-by');
@@ -21,7 +26,10 @@ app.use((req, res, next) => {
 // Simple per-IP Rate Limiter (stops spam/bot flood attacks)
 const rateBuckets = new Map();
 app.use('/api/', (req, res, next) => {
-  const ip = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket.remoteAddress || 'unknown';
+  const ip =
+    req.headers['x-forwarded-for']?.split(',')[0]?.trim() ||
+    req.socket.remoteAddress ||
+    'unknown';
   const now = Date.now();
   const bucket = rateBuckets.get(ip) || { count: 0, resetAt: now + 60_000 };
   if (now > bucket.resetAt) {
@@ -38,7 +46,7 @@ app.use('/api/', (req, res, next) => {
 
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
-// Resolve the $KOTÉ logo no matter which folder or extension it was uploaded with
+// Resolve the $KOTÉ logo no matter which folder or filename it was uploaded with
 function resolveLogoPath() {
   const rootDir = path.join(__dirname, '..');
   const publicDir = path.join(rootDir, 'public');
@@ -63,7 +71,7 @@ app.get('/kote-logo', (req, res) => {
   res.sendFile(logoFile);
 });
 
-// Dynamic TON Connect Manifest (required for Tonkeeper / Telegram Wallet connection)
+// Dynamic TON Connect Manifest (required for Tonkeeper / Telegram Wallet / MyTonWallet)
 app.get('/tonconnect-manifest.json', (req, res) => {
   const baseUrl = (process.env.WEBAPP_URL || `https://${req.get('host')}`).replace(/\/$/, '');
   res.json({
@@ -100,7 +108,7 @@ function verifyTelegramInitData(initData, botToken) {
 
   const authDate = Number(params.get('auth_date') || 0);
   if (authDate && Math.floor(Date.now() / 1000) - authDate > 86400) {
-    return null; // Reject expired initData older than 24h
+    return null;
   }
 
   const userJson = params.get('user');
@@ -124,18 +132,23 @@ function extractUser(req) {
   return null;
 }
 
-// Validate TON address format (EQ..., UQ..., or raw 0:hex)
+// Validate TON address format (EQ..., UQ..., kQ..., 0Q..., or raw 0:hex)
 function isValidTonAddress(addr) {
   if (!addr || typeof addr !== 'string') return false;
   const trimmed = addr.trim();
-  return /^(EQ|UQ|kQ|0Q)[A-Za-z0-9_-]{46}$/.test(trimmed) || /^0:[a-fA-F0-9]{64}$/.test(trimmed);
+  return (
+    /^(EQ|UQ|kQ|0Q)[A-Za-z0-9_-]{46}$/.test(trimmed) ||
+    /^0:[a-fA-F0-9]{64}$/.test(trimmed)
+  );
 }
 
 // Anti-Hack On-Chain Verifier via Toncenter public API
 async function verifyIncomingTonPayment({ escrowWallet, expectedTon, memoCode, txHash }) {
-  const minNano = BigInt(Math.floor(Number(expectedTon) * 1e9 * 0.99)); // 1% tolerance for dust/rounding
-  const apiKey = process.env.TONCENTER_API_KEY || '';
-  const url = `https://toncenter.com/api/v2/getTransactions?address=${encodeURIComponent(escrowWallet)}&limit=25${apiKey ? `&api_key=${encodeURIComponent(apiKey)}` : ''}`;
+  const minNano = BigInt(Math.floor(Number(expectedTon) * 1e9 * 0.99));
+  const apiKey = (process.env.TONCENTER_API_KEY || '').trim();
+  const url = `https://toncenter.com/api/v2/getTransactions?address=${encodeURIComponent(
+    escrowWallet
+  )}&limit=25${apiKey ? `&api_key=${encodeURIComponent(apiKey)}` : ''}`;
 
   const res = await fetch(url);
   if (!res.ok) {
@@ -177,7 +190,7 @@ app.get('/api/state', async (req, res) => {
       [round.id]
     );
     const recentRes = await pool.query(
-      `SELECT id, status, pot_total, winner_username, created_at
+      `SELECT id, status, pot_total, winner_username, payout_status, created_at
        FROM rounds WHERE status = 'SETTLED' ORDER BY id DESC LIMIT 5`
     );
 
@@ -196,15 +209,20 @@ app.get('/api/state', async (req, res) => {
     const secondsLeft = Math.max(0, Math.floor((endsMs - now) / 1000));
     const picksLocked = round.status === 'LIVE' && secondsLeft <= 20;
     const escrowWallet = (process.env.ESCROW_WALLET_ADDRESS || '').trim();
+    const treasuryWallet = (
+      process.env.TREASURY_WALLET_ADDRESS ||
+      'UQAC-pXNqjUJ0u1wBkLPiDkLVMZkWYXWvNQuH5Mtx_tPdsGV'
+    ).trim();
 
     res.json({
       round,
       aliveCount: aliveRes.rows[0].alive_count,
+      minPlayers: MIN_PLAYERS_TO_START,
       secondsLeft,
       picksLocked,
       escrowWallet,
       escrowValid: isValidTonAddress(escrowWallet),
-      treasuryWallet: (process.env.TREASURY_WALLET_ADDRESS || '').trim(),
+      treasuryWallet,
       myEntry,
       history: recentRes.rows
     });
@@ -293,7 +311,6 @@ app.post('/api/confirm-tx', async (req, res) => {
       return res.json({ entry });
     }
 
-    // Verify directly against the TON blockchain
     const check = await verifyIncomingTonPayment({
       escrowWallet,
       expectedTon: round.entry_fee,
@@ -303,7 +320,7 @@ app.post('/api/confirm-tx', async (req, res) => {
 
     if (!check.verified) {
       return res.status(400).json({
-        error: 'Payment not confirmed on TON yet. Wait 10 seconds after sending and tap Verify again.'
+        error: 'GRAM deposit not confirmed on-chain yet. Wait a few seconds and tap Verify again.'
       });
     }
 
@@ -352,7 +369,10 @@ app.post('/api/pick', async (req, res) => {
     }
 
     const round = await ensureOpenRound();
-    const secondsLeft = Math.max(0, Math.floor((new Date(round.step_ends_at).getTime() - Date.now()) / 1000));
+    const secondsLeft = Math.max(
+      0,
+      Math.floor((new Date(round.step_ends_at).getTime() - Date.now()) / 1000)
+    );
     if (round.status !== 'LIVE' || secondsLeft <= 20) {
       return res.status(400).json({ error: 'Picks are locked for this candle' });
     }
@@ -370,7 +390,7 @@ app.post('/api/pick', async (req, res) => {
     }
 
     res.json({ entry: updated.rows[0] });
-  } catch (err) {
+  } catch (err) {js
     console.error(err);
     res.status(500).json({ error: 'Failed to save pick' });
   }
@@ -387,7 +407,7 @@ app.post(`/webhook/${process.env.BOT_TOKEN || 'dev'}`, async (req, res) => {
     const webAppUrl = process.env.WEBAPP_URL || 'https://example.com';
     await sendTelegramMessage(
       msg.chat.id,
-      `<b>🐱🔥 WELCOME TO $KOTÉ — LAST CANDLE STANDING</b>\n\nSurvive every candle. Outlast the crowd. Claim the pot.\n\n• <b>85%</b> goes to the last cat standing\n• <b>15%</b> goes to the $KOTÉ Treasury (buybacks &amp; marketing)`,
+      `<b>🐱🔥 WELCOME TO $KOTÉ — LAST CANDLE STANDING</b>\n\nSurvive every candle. Outlast the crowd. Claim the pot.\n\n• <b>85%</b> prize pool (<b>50%</b> 1st, <b>20%</b> 2nd, <b>15%</b> 3rd)\n• <b>15%</b> auto-routes to $KOTÉ Treasury (buybacks &amp; marketing)`,
       {
         inline_keyboard: [[{ text: '🔥 Open $KOTÉ Arena', web_app: { url: webAppUrl } }]]
       }
