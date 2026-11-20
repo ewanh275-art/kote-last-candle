@@ -1,6 +1,8 @@
 const { mnemonicToPrivateKey } = require('@ton/crypto');
 const { TonClient, WalletContractV4, internal } = require('@ton/ton');
 
+const DEFAULT_TREASURY_WALLET = 'UQAC-pXNqjUJ0u1wBkLPiDkLVMZkWYXWvNQuH5Mtx_tPdsGV';
+
 function getTonClient() {
   const apiKey = process.env.TONCENTER_API_KEY || '';
   return new TonClient({
@@ -29,7 +31,6 @@ async function sendTonTransfer({ toAddress, amountTon, comment }) {
   const contract = client.open(wallet);
   const seqno = await contract.getSeqno();
 
-  // Leave a small safety buffer for network gas if balance is tight
   const safeAmount = Math.max(0, Number(amountTon.toFixed(6)));
   if (safeAmount <= 0) {
     return { skipped: true };
@@ -52,12 +53,11 @@ async function sendTonTransfer({ toAddress, amountTon, comment }) {
 }
 
 /**
- * Total pot is the 85% prize pool collected from entries (or gross collected if raw pot passed).
- * Here, `prizePool85` = 85% of total collected entries, and `treasury15` = 15% of total collected entries.
- * Within `prizePool85`: 1st gets 50%, 2nd gets 20%, 3rd gets 15% of `prizePool85`.
+ * Automatically routes 15% of total collected entries to the KOTÉ Treasury wallet
+ * and splits the 85% prize pool across 1st (50%), 2nd (20%), and 3rd (15%) place.
  */
 async function executeRoundPayouts({ roundId, prizePool85, treasury15, placements }) {
-  const treasuryWallet = (process.env.TREASURY_WALLET_ADDRESS || '').trim();
+  const treasuryWallet = (process.env.TREASURY_WALLET_ADDRESS || DEFAULT_TREASURY_WALLET).trim();
   const results = [];
 
   // 1. Send 15% Treasury cut automatically
@@ -70,7 +70,7 @@ async function executeRoundPayouts({ roundId, prizePool85, treasury15, placement
     results.push({ role: 'TREASURY_15', ...tRes });
   }
 
-  // 2. Send 1st (50% of 85% pool), 2nd (20% of 85% pool), 3rd (15% of 85% pool)
+  // 2. Split 85% prize pool: 50% to 1st, 20% to 2nd, 15% to 3rd
   const shares = [
     { place: 1, pctOfPool: 0.50 },
     { place: 2, pctOfPool: 0.20 },
