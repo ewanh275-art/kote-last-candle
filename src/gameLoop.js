@@ -2,6 +2,9 @@ const { pool } = require('./db');
 const { getCurrentTokenPrice } = require('./prices');
 const { executeRoundPayouts } = require('./payouts');
 
+const MIN_PLAYERS_TO_START = Math.max(3, Number(process.env.MIN_PLAYERS || 3));
+const MAX_KNOCKOUT_ROUNDS = Number(process.env.MAX_KNOCKOUT_ROUNDS || 3);
+
 async function sendTelegramMessage(chatId, text, replyMarkup = null) {
   const token = process.env.BOT_TOKEN;
   if (!token || !chatId) return;
@@ -28,7 +31,7 @@ async function ensureOpenRound() {
   if (existing.rows.length > 0) return existing.rows[0];
 
   const entryFee = Number(process.env.ENTRY_FEE || 1);
-  const lobbyMins = Number(process.env.ROUND_DURATION_MINUTES || 15);
+  const lobbyMins = Number(process.env.ROUND_DURATION_MINUTES || 5);
   const endsAt = new Date(Date.now() + lobbyMins * 60 * 1000).toISOString();
 
   const created = await pool.query(
@@ -64,7 +67,6 @@ async function startNextCandleStep(roundId) {
 }
 
 async function settleRound(round) {
-  // Rank active players first, then most recently updated entries for 2nd & 3rd place
   const rankedRes = await pool.query(
     `SELECT * FROM entries
      WHERE round_id = $1 AND status IN ('ALIVE', 'ELIMINATED')
@@ -75,7 +77,6 @@ async function settleRound(round) {
     [round.id]
   );
 
-  // pot_total already stores the 85% prize pool accumulated from verified entries
   const prizePool85 = Number(round.pot_total || 0);
   const grossCollected = prizePool85 > 0 ? prizePool85 / 0.85 : 0;
   const treasury15 = Number((grossCollected * 0.15).toFixed(6));
@@ -148,6 +149,7 @@ async function tickGameEngine() {
   const now = Date.now();
   const endsAtMs = new Date(round.step_ends_at).getTime();
 
+  // Do NOT start the game until at least MIN_PLAYERS_TO_START (3) players have entered
   if (round.status === 'OPEN' && now >= endsAtMs) {
     const activeCountRes = await pool.query(
       `SELECT COUNT(*)::int AS cnt FROM entries WHERE round_id = $1 AND status = 'ALIVE'`,
@@ -155,7 +157,7 @@ async function tickGameEngine() {
     );
     const activeCount = activeCountRes.rows[0].cnt;
 
-    if (activeCount < 2) {
+    if (activeCount < MIN_PLAYERS_TO_START) {
       const extendMs = 5 * 60 * 1000;
       await pool.query(
         `UPDATE rounds SET step_ends_at = $1 WHERE id = $2`,
@@ -189,7 +191,7 @@ async function tickGameEngine() {
       [round.id]
     );
 
-    if (aliveRes.rows.length <= 1) {
+    if (aliveRes.rows.length <= 1 || Number(round.step_number) >= MAX_KNOCKOUT_ROUNDS) {
       await settleRound(round);
       await ensureOpenRound();
     } else {
@@ -201,5 +203,6 @@ async function tickGameEngine() {
 module.exports = {
   tickGameEngine,
   ensureOpenRound,
-  sendTelegramMessage
+  sendTelegramMessage,
+  MIN_PLAYERS_TO_START
 };
