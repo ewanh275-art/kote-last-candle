@@ -29,6 +29,7 @@ async function initDb() {
       round_id INT NOT NULL REFERENCES rounds(id) ON DELETE CASCADE,
       tg_user_id BIGINT NOT NULL,
       tg_username TEXT,
+      wallet_address TEXT,
       memo_code VARCHAR(32) UNIQUE NOT NULL,
       tx_hash TEXT UNIQUE,
       status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
@@ -37,6 +38,9 @@ async function initDb() {
       UNIQUE(round_id, tg_user_id)
     );
   `);
+
+  // Safe migration if table already existed from earlier deploy
+  await pool.query(`ALTER TABLE entries ADD COLUMN IF NOT EXISTS wallet_address TEXT;`);
 }
 
 module.exports = { pool, initDb };
