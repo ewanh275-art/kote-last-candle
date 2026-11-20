@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>$KOTÉ — Last Candle Standing</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script src="https://unpkg.com/@tonconnect/ui@2.0.9/dist/tonconnect-ui.min.js"></script>
   <style>
     :root {
       --kote-blue: #2196f3;
@@ -39,7 +40,8 @@
     .hero {
       display: flex;
       align-items: center;
-      gap: 12px;
+      justify-content: space-between;
+      gap: 10px;
       background: var(--kote-blue-dark);
       border: 3px solid var(--kote-ink);
       border-radius: 18px;
@@ -47,18 +49,25 @@
       box-shadow: 0 5px 0 var(--kote-ink);
     }
 
+    .hero-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
     .hero img {
-      width: 68px;
-      height: 68px;
+      width: 64px;
+      height: 64px;
       object-fit: cover;
       border-radius: 14px;
       border: 3px solid var(--kote-ink);
       background: var(--kote-grey);
+      flex-shrink: 0;
     }
 
     .title {
       margin: 0;
-      font-size: 24px;
+      font-size: 21px;
       font-weight: 900;
       letter-spacing: 0.5px;
       color: var(--kote-cream);
@@ -66,10 +75,24 @@
     }
 
     .subtitle {
-      margin: 4px 0 0;
-      font-size: 12px;
+      margin: 3px 0 0;
+      font-size: 11px;
       font-weight: 700;
       color: var(--kote-cream);
+    }
+
+    .shield-bar {
+      background: #0f172a;
+      color: #a7f3d0;
+      border: 2px solid var(--kote-ink);
+      border-radius: 12px;
+      padding: 8px 12px;
+      font-size: 11px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
     }
 
     .card {
@@ -136,6 +159,7 @@
     }
 
     .btn-yellow { background: var(--kote-yellow); color: var(--kote-ink); }
+    .btn-blue { background: var(--kote-blue); color: #ffffff; margin-top: 8px; }
     .btn-green { background: var(--kote-green); color: #ffffff; }
     .btn-red { background: var(--kote-red); color: #ffffff; }
 
@@ -146,19 +170,9 @@
       margin-top: 10px;
     }
 
-    input {
-      width: 100%;
-      padding: 10px 12px;
-      border-radius: 12px;
-      border: 2px solid var(--kote-ink);
-      font-size: 13px;
-      font-weight: 700;
-      margin-bottom: 8px;
-    }
-
     .mono {
       font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-      font-size: 12px;
+      font-size: 11px;
       word-break: break-all;
       background: #ffffff;
       border: 2px solid var(--kote-ink);
@@ -167,18 +181,31 @@
       margin: 6px 0;
     }
 
-    .muted { font-size: 12px; font-weight: 600; opacity: 0.8; }
+    .muted { font-size: 12px; font-weight: 600; opacity: 0.85; }
     .msg { margin-top: 8px; font-size: 12px; font-weight: 800; }
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="hero">
-      <img src="/kote.png%20.JPG" alt="$KOTÉ Mascot" />
-      <div>
-        <h1 class="title">$KOTÉ CANDLE</h1>
-        <p class="subtitle">85% Winner Pot • 15% $KOTÉ Treasury</p>
+      <div class="hero-left">
+        <img
+          id="koteLogoImg"
+          src="/kote-logo"
+          alt="$KOTÉ Mascot"
+          onerror="this.onerror=null; this.src='data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><rect width=%22100%22 height=%22100%22 fill=%22%232196f3%22/><ellipse cx=%2250%22 cy=%2258%22 rx=%2234%22 ry=%2236%22 fill=%22%23b8b8b8%22 stroke=%22%23111%22 stroke-width=%225%22/><ellipse cx=%2239%22 cy=%2254%22 rx=%226%22 ry=%229%22 fill=%22%23e5f600%22 stroke=%22%23111%22 stroke-width=%223%22/><ellipse cx=%2261%22 cy=%2254%22 rx=%226%22 ry=%229%22 fill=%22%23e5f600%22 stroke=%22%23111%22 stroke-width=%223%22/></svg>';"
+        />
+        <div>
+          <h1 class="title">$KOTÉ CANDLE</h1>
+          <p class="subtitle">85% Winner • 15% Treasury</p>
+        </div>
       </div>
+      <div id="ton-connect-btn"></div>
+    </div>
+
+    <div class="shield-bar">
+      <span>🛡️ ANTI-DRAIN GUARD ACTIVE</span>
+      <span id="walletStatusBadge">Wallet: Not Connected</span>
     </div>
 
     <div class="card">
@@ -201,19 +228,18 @@
     </div>
 
     <div class="card" id="entryCard">
-      <div class="pill">STEP 1: ENTER ROUND</div>
+      <div class="pill">STEP 1: CONNECT &amp; ENTER</div>
       <p class="muted" style="margin: 0 0 8px;">
-        Entry fee: <strong id="feeVal">1</strong> • 85% goes to winner pot, 15% to Treasury buybacks &amp; marketing.
+        Entry fee: <strong id="feeVal">1</strong> TON • Single-transfer only (zero token approvals).
       </p>
-      <button class="btn btn-yellow" onclick="joinRound()">Get My Entry Memo</button>
+      <button class="btn btn-yellow" onclick="payWithTonConnect()">⚡ Connect &amp; Pay Entry Fee</button>
 
       <div id="memoBox" style="display:none; margin-top:10px;">
-        <div class="muted">Send exact fee to Escrow Wallet:</div>
+        <div class="muted">Verified Escrow Destination:</div>
         <div id="escrowAddr" class="mono"></div>
-        <div class="muted">Include this exact Memo / Comment:</div>
+        <div class="muted">Your Unique Entry Memo:</div>
         <div id="memoCode" class="mono"></div>
-        <input id="txInput" type="text" placeholder="Paste your Tx Hash after sending..." />
-        <button class="btn btn-yellow" onclick="confirmTx()">Verify &amp; Enter Arena</button>
+        <button class="btn btn-blue" onclick="verifyOnChain()">🔍 Re-Verify Payment On-Chain</button>
       </div>
     </div>
 
@@ -232,6 +258,26 @@
     const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
     if (tg) tg.ready();
 
+    let latestState = null;
+    let connectedWallet = '';
+
+    // Initialize official TON Connect UI
+    const tonConnectUI = new TON_CONNECT_UI.TonConnectUI({
+      manifestUrl: `${window.location.origin}/tonconnect-manifest.json`,
+      buttonRootId: 'ton-connect-btn'
+    });
+
+    tonConnectUI.onStatusChange((wallet) => {
+      if (wallet && wallet.account && wallet.account.address) {
+        connectedWallet = wallet.account.address;
+        const shortAddr = connectedWallet.slice(0, 4) + '...' + connectedWallet.slice(-4);
+        document.getElementById('walletStatusBadge').textContent = `Connected: ${shortAddr}`;
+      } else {
+        connectedWallet = '';
+        document.getElementById('walletStatusBadge').textContent = 'Wallet: Not Connected';
+      }
+    });
+
     function headers() {
       return {
         'Content-Type': 'application/json',
@@ -244,48 +290,98 @@
     }
 
     async function refreshState() {
-      const res = await fetch('/api/state', { headers: headers() });
-      const data = await res.json();
-      if (!data.round) return;
+      try {
+        const res = await fetch('/api/state', { headers: headers() });
+        const data = await res.json();
+        if (!data.round) return;
+        latestState = data;
 
-      const r = data.round;
-      document.getElementById('roundBadge').textContent = `ROUND #${r.id} • ${r.status}`;
-      document.getElementById('potVal').textContent = Number(r.pot_total).toFixed(2);
-      document.getElementById('aliveVal').textContent = data.aliveCount;
-      document.getElementById('timerVal').textContent = `${data.secondsLeft}s`;
-      document.getElementById('feeVal').textContent = r.entry_fee;
-      document.getElementById('escrowAddr').textContent = data.escrowWallet;
+        const r = data.round;
+        document.getElementById('roundBadge').textContent = `ROUND #${r.id} • ${r.status}`;
+        document.getElementById('potVal').textContent = Number(r.pot_total).toFixed(2);
+        document.getElementById('aliveVal').textContent = data.aliveCount;
+        document.getElementById('timerVal').textContent = `${data.secondsLeft}s`;
+        document.getElementById('feeVal').textContent = r.entry_fee;
+        document.getElementById('escrowAddr').textContent = data.escrowWallet || 'Not set';
 
-      document.getElementById('priceInfo').textContent = r.open_price
-        ? `Candle Open: $${Number(r.open_price).toFixed(8)} • ${data.picksLocked ? 'PICKS LOCKED' : 'Picks Open'}`
-        : 'Waiting for lobby countdown to launch first candle...';
+        document.getElementById('priceInfo').textContent = r.open_price
+          ? `Candle Open: $${Number(r.open_price).toFixed(8)} • ${data.picksLocked ? 'PICKS LOCKED' : 'Picks Open'}`
+          : 'Waiting for lobby countdown to launch first candle...';
 
-      if (data.myEntry) {
-        document.getElementById('memoBox').style.display = 'block';
-        document.getElementById('memoCode').textContent = data.myEntry.memo_code;
-        document.getElementById('pickStatus').textContent =
-          `Status: ${data.myEntry.status} • Pick: ${data.myEntry.pick || 'None'}`;
+        if (data.myEntry) {
+          document.getElementById('memoBox').style.display = 'block';
+          document.getElementById('memoCode').textContent = data.myEntry.memo_code;
+          document.getElementById('pickStatus').textContent =
+            `Status: ${data.myEntry.status} • Pick: ${data.myEntry.pick || 'None'}`;
+        }
+      } catch (e) {
+        console.error(e);
       }
     }
 
-    async function joinRound() {
-      const res = await fetch('/api/join', { method: 'POST', headers: headers(), body: JSON.stringify({}) });
-      const data = await res.json();
-      if (data.error) return setMsg(data.error);
-      setMsg('Memo generated! Send payment and paste Tx Hash.');
-      refreshState();
+    async function payWithTonConnect() {
+      if (!connectedWallet) {
+        await tonConnectUI.openModal();
+        return;
+      }
+
+      if (!latestState || !latestState.escrowValid) {
+        return setMsg('🛡️ Blocked: Escrow wallet address is invalid or not configured.');
+      }
+
+      // 1. Register entry & get unique memo from server
+      const joinRes = await fetch('/api/join', {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify({ walletAddress: connectedWallet })
+      });
+      const joinData = await joinRes.json();
+      if (joinData.error) return setMsg(joinData.error);
+
+      await refreshState();
+      if (joinData.entry.status === 'ALIVE') {
+        return setMsg('You are already ALIVE in this round!');
+      }
+
+      // 2. Anti-Drain Guard: Plain TON transfer only (no smart contract payload/approvals)
+      const feeTon = Number(latestState.round.entry_fee);
+      if (!feeTon || feeTon <= 0 || feeTon > 100) {
+        return setMsg('🛡️ Blocked: Entry fee out of safe bounds.');
+      }
+
+      const nanoAmount = String(Math.floor(feeTon * 1e9));
+      const txRequest = {
+        validUntil: Math.floor(Date.now() / 1000) + 300,
+        messages: [
+          {
+            address: latestState.escrowWallet,
+            amount: nanoAmount
+          }
+        ]
+      };
+
+      try {
+        setMsg('Confirm the exact transfer inside your TON wallet...');
+        const result = await tonConnectUI.sendTransaction(txRequest);
+        setMsg('Transaction sent! Verifying on TON blockchain...');
+        setTimeout(() => verifyOnChain(result.boc), 6000);
+      } catch (err) {
+        setMsg('Transaction cancelled or rejected in wallet.');
+      }
     }
 
-    async function confirmTx() {
-      const txHash = document.getElementById('txInput').value.trim();
+    async function verifyOnChain(bocHash = '') {
       const res = await fetch('/api/confirm-tx', {
         method: 'POST',
         headers: headers(),
-        body: JSON.stringify({ txHash })
+        body: JSON.stringify({
+          txHash: bocHash,
+          walletAddress: connectedWallet
+        })
       });
       const data = await res.json();
       if (data.error) return setMsg(data.error);
-      setMsg('You are ALIVE in the round!');
+      setMsg('✅ On-chain verified! You are ALIVE in the round!');
       refreshState();
     }
 
