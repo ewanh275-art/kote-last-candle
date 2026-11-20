@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>$KOTÉ — Last Candle Standing</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    :root {
+      --kote-blue: #2196f3;
+      --kote-blue-dark: #1565c0;
+      --kote-cream: #fff3d6;
+      --kote-grey: #b8b8b8;
+      --kote-yellow: #e5f600;
+      --kote-ink: #111111;
+      --kote-green: #22c55e;
+      --kote-red: #ef4444;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 16px;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--kote-blue);
+      color: var(--kote-ink);
+      min-height: 100vh;
+    }
+
+    .wrap {
+      max-width: 460px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .hero {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: var(--kote-blue-dark);
+      border: 3px solid var(--kote-ink);
+      border-radius: 18px;
+      padding: 12px;
+      box-shadow: 0 5px 0 var(--kote-ink);
+    }
+
+    .hero img {
+      width: 68px;
+      height: 68px;
+      object-fit: cover;
+      border-radius: 14px;
+      border: 3px solid var(--kote-ink);
+      background: var(--kote-grey);
+    }
+
+    .title {
+      margin: 0;
+      font-size: 24px;
+      font-weight: 900;
+      letter-spacing: 0.5px;
+      color: var(--kote-cream);
+      text-shadow: -2px -2px 0 var(--kote-ink), 2px -2px 0 var(--kote-ink), -2px 2px 0 var(--kote-ink), 2px 2px 0 var(--kote-ink);
+    }
+
+    .subtitle {
+      margin: 4px 0 0;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--kote-cream);
+    }
+
+    .card {
+      background: var(--kote-cream);
+      border: 3px solid var(--kote-ink);
+      border-radius: 18px;
+      padding: 14px;
+      box-shadow: 0 5px 0 var(--kote-ink);
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      text-align: center;
+    }
+
+    .stat-box {
+      background: #ffffff;
+      border: 2px solid var(--kote-ink);
+      border-radius: 12px;
+      padding: 8px 6px;
+    }
+
+    .stat-label {
+      font-size: 10px;
+      font-weight: 800;
+      text-transform: uppercase;
+      opacity: 0.7;
+    }
+
+    .stat-val {
+      font-size: 16px;
+      font-weight: 900;
+      margin-top: 2px;
+    }
+
+    .pill {
+      display: inline-block;
+      background: var(--kote-yellow);
+      border: 2px solid var(--kote-ink);
+      border-radius: 999px;
+      padding: 3px 10px;
+      font-size: 11px;
+      font-weight: 900;
+      margin-bottom: 8px;
+    }
+
+    .btn {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: 3px solid var(--kote-ink);
+      font-size: 14px;
+      font-weight: 900;
+      cursor: pointer;
+      box-shadow: 0 4px 0 var(--kote-ink);
+      transition: transform 0.06s ease;
+    }
+
+    .btn:active {
+      transform: translateY(2px);
+      box-shadow: 0 2px 0 var(--kote-ink);
+    }
+
+    .btn-yellow { background: var(--kote-yellow); color: var(--kote-ink); }
+    .btn-green { background: var(--kote-green); color: #ffffff; }
+    .btn-red { background: var(--kote-red); color: #ffffff; }
+
+    .pick-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    input {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 2px solid var(--kote-ink);
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 12px;
+      word-break: break-all;
+      background: #ffffff;
+      border: 2px solid var(--kote-ink);
+      border-radius: 10px;
+      padding: 8px;
+      margin: 6px 0;
+    }
+
+    .muted { font-size: 12px; font-weight: 600; opacity: 0.8; }
+    .msg { margin-top: 8px; font-size: 12px; font-weight: 800; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hero">
+      <img src="/kote.jpg" alt="$KOTÉ Mascot" />
+      <div>
+        <h1 class="title">$KOTÉ CANDLE</h1>
+        <p class="subtitle">85% Winner Pot • 15% $KOTÉ Treasury</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div id="roundBadge" class="pill">ROUND #1 • OPEN</div>
+      <div class="stats">
+        <div class="stat-box">
+          <div class="stat-label">Prize Pot</div>
+          <div id="potVal" class="stat-val">0</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Alive</div>
+          <div id="aliveVal" class="stat-val">0</div>
+        </div>
+        <div class="stat-box">
+          <div class="stat-label">Timer</div>
+          <div id="timerVal" class="stat-val">00s</div>
+        </div>
+      </div>
+      <p id="priceInfo" class="muted" style="margin: 10px 0 0;">Open price: waiting for live candle...</p>
+    </div>
+
+    <div class="card" id="entryCard">
+      <div class="pill">STEP 1: ENTER ROUND</div>
+      <p class="muted" style="margin: 0 0 8px;">
+        Entry fee: <strong id="feeVal">1</strong> • 85% goes to winner pot, 15% to Treasury buybacks &amp; marketing.
+      </p>
+      <button class="btn btn-yellow" onclick="joinRound()">Get My Entry Memo</button>
+
+      <div id="memoBox" style="display:none; margin-top:10px;">
+        <div class="muted">Send exact fee to Escrow Wallet:</div>
+        <div id="escrowAddr" class="mono"></div>
+        <div class="muted">Include this exact Memo / Comment:</div>
+        <div id="memoCode" class="mono"></div>
+        <input id="txInput" type="text" placeholder="Paste your Tx Hash after sending..." />
+        <button class="btn btn-yellow" onclick="confirmTx()">Verify &amp; Enter Arena</button>
+      </div>
+    </div>
+
+    <div class="card" id="arenaCard">
+      <div class="pill">STEP 2: CALL NEXT CANDLE</div>
+      <p id="pickStatus" class="muted" style="margin: 0 0 6px;">Current pick: None</p>
+      <div class="pick-row">
+        <button class="btn btn-green" onclick="sendPick('GREEN')">🟢 GREEN</button>
+        <button class="btn btn-red" onclick="sendPick('RED')">🔴 RED</button>
+      </div>
+      <div id="statusMsg" class="msg"></div>
+    </div>
+  </div>
+
+  <script>
+    const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
+    if (tg) tg.ready();
+
+    function headers() {
+      return {
+        'Content-Type': 'application/json',
+        'x-telegram-init-data': tg ? tg.initData : ''
+      };
+    }
+
+    function setMsg(text) {
+      document.getElementById('statusMsg').textContent = text;
+    }
+
+    async function refreshState() {
+      const res = await fetch('/api/state', { headers: headers() });
+      const data = await res.json();
+      if (!data.round) return;
+
+      const r = data.round;
+      document.getElementById('roundBadge').textContent = `ROUND #${r.id} • ${r.status}`;
+      document.getElementById('potVal').textContent = Number(r.pot_total).toFixed(2);
+      document.getElementById('aliveVal').textContent = data.aliveCount;
+      document.getElementById('timerVal').textContent = `${data.secondsLeft}s`;
+      document.getElementById('feeVal').textContent = r.entry_fee;
+      document.getElementById('escrowAddr').textContent = data.escrowWallet;
+
+      document.getElementById('priceInfo').textContent = r.open_price
+        ? `Candle Open: $${Number(r.open_price).toFixed(8)} • ${data.picksLocked ? 'PICKS LOCKED' : 'Picks Open'}`
+        : 'Waiting for lobby countdown to launch first candle...';
+
+      if (data.myEntry) {
+        document.getElementById('memoBox').style.display = 'block';
+        document.getElementById('memoCode').textContent = data.myEntry.memo_code;
+        document.getElementById('pickStatus').textContent =
+          `Status: ${data.myEntry.status} • Pick: ${data.myEntry.pick || 'None'}`;
+      }
+    }
+
+    async function joinRound() {
+      const res = await fetch('/api/join', { method: 'POST', headers: headers(), body: JSON.stringify({}) });
+      const data = await res.json();
+      if (data.error) return setMsg(data.error);
+      setMsg('Memo generated! Send payment and paste Tx Hash.');
+      refreshState();
+    }
+
+    async function confirmTx() {
+      const txHash = document.getElementById('txInput').value.trim();
+      const res = await fetch('/api/confirm-tx', {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify({ txHash })
+      });
+      const data = await res.json();
+      if (data.error) return setMsg(data.error);
+      setMsg('You are ALIVE in the round!');
+      refreshState();
+    }
+
+    async function sendPick(pick) {
+      const res = await fetch('/api/pick', {
+        method: 'POST',
+        headers: headers(),
+        body: JSON.stringify({ pick })
+      });
+      const data = await res.json();
+      if (data.error) return setMsg(data.error);
+      setMsg(`Locked in ${pick}!`);
+      refreshState();
+    }
+
+    refreshState();
+    setInterval(refreshState, 3000);
+  </script>
+</body>
+</html>
