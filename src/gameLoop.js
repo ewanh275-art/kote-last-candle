@@ -4,6 +4,7 @@ const { executeRoundPayouts } = require('./payouts');
 
 const MIN_PLAYERS_TO_START = Math.max(3, Number(process.env.MIN_PLAYERS || 3));
 const MAX_KNOCKOUT_ROUNDS = Number(process.env.MAX_KNOCKOUT_ROUNDS || 3);
+const LOBBY_COUNTDOWN_SECONDS = Number(process.env.LOBBY_COUNTDOWN_SECONDS || 30);
 
 async function sendTelegramMessage(chatId, text, replyMarkup = null) {
   const token = process.env.BOT_TOKEN;
@@ -31,8 +32,7 @@ async function ensureOpenRound() {
   if (existing.rows.length > 0) return existing.rows[0];
 
   const entryFee = Number(process.env.ENTRY_FEE || 1);
-  const lobbyMins = Number(process.env.ROUND_DURATION_MINUTES || 5);
-  const endsAt = new Date(Date.now() + lobbyMins * 60 * 1000).toISOString();
+  const endsAt = new Date(Date.now() + LOBBY_COUNTDOWN_SECONDS * 1000).toISOString();
 
   const created = await pool.query(
     `INSERT INTO rounds (status, entry_fee, step_ends_at)
@@ -158,10 +158,9 @@ async function tickGameEngine() {
     const activeCount = activeCountRes.rows[0].cnt;
 
     if (activeCount < MIN_PLAYERS_TO_START) {
-      const extendMs = 5 * 60 * 1000;
       await pool.query(
         `UPDATE rounds SET step_ends_at = $1 WHERE id = $2`,
-        [new Date(now + extendMs).toISOString(), round.id]
+        [new Date(now + LOBBY_COUNTDOWN_SECONDS * 1000).toISOString(), round.id]
       );
       return;
     }
