@@ -221,11 +221,11 @@
         </div>
         <div class="stat-box">
           <div class="stat-label">Timer</div>
-          <div id="timerVal" class="stat-val">00s</div>
+          <div id="timerVal" class="stat-val">30s</div>
         </div>
       </div>
       <p id="lobbyReqInfo" class="muted" style="margin: 8px 0 0;">
-        Needs at least 3 players to start (3 knockout rounds).
+        Needs at least 3 players to start (30s lobby • 3 knockout rounds).
       </p>
       <p id="priceInfo" class="muted" style="margin: 6px 0 0;">
         KOTÉ live candle: waiting for lobby countdown...
@@ -320,12 +320,12 @@
         document.getElementById('escrowAddr').textContent = data.escrowWallet || 'Not set';
 
         document.getElementById('lobbyReqInfo').textContent = needed > 0
-          ? `Waiting for ${needed} more player(s) (min ${minPlayers} players required before game starts).`
+          ? `Waiting for ${needed} more player(s) (min ${minPlayers} players required • 30s lobby).`
           : `Minimum ${minPlayers} players met! 3 knockout rounds ready.`;
 
         document.getElementById('priceInfo').textContent = r.open_price
           ? `KOTÉ Open: $${Number(r.open_price).toFixed(8)} • ${data.picksLocked ? 'PICKS LOCKED' : 'Picks Open'}`
-          : 'Waiting for minimum players & lobby countdown to launch first KOTÉ candle...';
+          : 'Waiting for minimum players & 30s lobby countdown to launch first KOTÉ candle...';
 
         if (data.myEntry) {
           document.getElementById('memoBox').style.display = 'block';
